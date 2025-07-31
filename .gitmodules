@@ -1,6 +1,3 @@
-[submodule "frontend"]
-	path = frontend
-	url = https://github.com/briyoon/ECE551-Video-Seg-Frontend.git
 [submodule "video_seg_frontend"]
 	path = video_seg_frontend
 	url = https://github.com/briyoon/ECE551-Video-Seg-Frontend.git
