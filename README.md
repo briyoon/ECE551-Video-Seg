@@ -280,11 +280,41 @@ Confirmation is handled on the client; irreversible action is performed by DELET
 
 A small-scale study was conducted with the Oxford-IIIT Pet datasets. Both time and accuracy metrics were studied. A subset of 50 cats and 50 dogs were used, with even class distribution.
 
-| Metric | Manual Reference | ECE551-Video-Seg | Delta |
-| ----- | ----- | ----- | ----- |
-| Annotation Time | ? | ? | ? |
-| Mean IoU | N/A | ? | ? |
-| Mean Dice | N/A | ? | ? |
+### Results:
+Setup. 100 Oxford-IIIT Pet images (balanced cats/dogs). Ground truth derived from trimaps; predictions evaluated with COCO-style RLE using pycocotools.
+
+Metrics used:
+
+IoU (Intersection over Union):
+Imagine two cut-out shapes: your prediction and the ground truth. IoU asks: “Out of everything covered by either shape, what fraction is the part where they overlap?” Bigger overlap → higher IoU.  Extra outside or missing areas lower it.
+
+Dice:
+Same two shapes, but Dice is a little more forgiving. It asks: “How big is the overlap compared to the sizes of the two shapes put together?” (and it counts the overlap twice). For the same masks, Dice is usually a bit higher than IoU.
+
+Tiny example: If the overlap is “80% of everything either shape covers,” then IoU ≈ 0.80 and Dice ≈ 0.89.
+
+Edge cases: Both empty → perfect match (often treated as 1.0). One empty, one not → 0.0.
+
+#### Annotation Productivity
+
+- Total time: 8:49 (mm:ss) → 529 s
+- Throughput: 5.29 s/image (≈ 11.3 images/min, ~681 images/hour). This is an efficient rate for pixel-accurate masks and suggests an effective workflow and/or strong tool assistance.
+
+#### Quality Metrics
+
+- Mean IoU: 0.8008
+- Mean Dice: 0.8871
+- Class IoU: cat 0.8141, dog 0.7874 (∆ ≈ 0.0267)
+
+#### Interpretation.
+
+- IoU ≈ 0.80 / Dice ≈ 0.89 indicate high-quality masks with good overlap and boundary adherence.
+- The modest cat–dog gap (~2.7 pts IoU) implies dogs are slightly harder—likely due to pose variability, fur edges, or occlusions.
+
+#### Key Takeaways
+
+- Speed and quality are both strong. You’re achieving sub-6-second masks with ~0.80 IoU on average.
+- Small class disparity. Worth a targeted review of low-IoU dog cases to identify common failure modes.
 
 ## 7 Future Goals
 
