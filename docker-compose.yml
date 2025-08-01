@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: ./video_seg_backend
+      dockerfile: Dockerfile
+    container_name: video_seg_backend
+    ports:
+      - "8000:8000"
+    restart: on-failure
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  web:
+    build:
+      context: ./video_seg_frontend
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_API_BASE: "http://localhost:8000"   # baked into bundle
+    container_name: video_seg_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
