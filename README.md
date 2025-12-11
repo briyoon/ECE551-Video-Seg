@@ -390,9 +390,18 @@ To Ensure compatibility with modern Video Object Segmentation (VOS) benchmarks, 
 - **JSON Structure**: The dataset is exported as a single `coco.json`-like structure, but grouped by `tracks` instead of just images.
 - **Segmentation Format**: Unlike standard COCO which often uses polygons, our export produces **RLE (Run-Length Encoding)** masks. This handles complex topologies (e.g., a donut shape or occluded object split in two) which polygons struggle to represent efficiently.
 
-## 9 Future Goals
+## 9 Davis Dataset
+
+DAVIS 2017 Train/Val set, 90 videos, couple of seconds each at 30 fps.
+
+![DAVIS Example](resources/davis_example.png)
+
+Ground truth data are frames with masks burned in.
+
+![DAVIS Example](resources/davis_gt_example.mp4)
+
+## 10 Future Goals
 
 - Integration of an object-detection model to generate initial prompts automatically.
 - Tools to further refine initial SAM2 annotations.
 - Torch-TensorRT engine support for faster inference on compatible GPUs.
-```
