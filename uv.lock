@@ -65,6 +65,9 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
+[package.metadata.requires-dev]
+dev = []
+
 [[package]]
 name = "filelock"
 version = "3.18.0"

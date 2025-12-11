@@ -24,10 +24,10 @@ The application is delivered as two Docker containers—one serving a Svelte fro
 
 | Category | Description |
 |----------|-------------|
-| Media management | Upload, list and preview images (video support is planned). Media is stored per project. |
+| Media management | Upload, list and preview images and videos. Media is stored per project. |
 | Label management | Add, edit and delete labels. Each label is associated with a color. |
-| Annotation studio | Prompt-based mask generation using SAM 2.1. Supports multiple labels, multiple prompts, undo/redo and keyboard shortcuts. |
-| Export | One-click COCO JSON export (images plus RLE masks). |
+| Annotation studio | Prompt-based mask generation using SAM 2.1. Supports multiple labels, multiple prompts, undo/redo and keyboard shortcuts. Video support includes timeline navigation and object tracking. |
+| Export | One-click export: COCO JSON for images, YouTube-VIS format for videos. |
 
 ## 2 Screenshots
 
@@ -56,60 +56,80 @@ The application is delivered as two Docker containers—one serving a Svelte fro
 
 | Component | Minimum | Recommended |
 |-----------|---------|-------------|
-| GPU | not required (CPU mode) | NVIDIA GPU, ≥ 8 GB VRAM, CUDA 12.8 |
-| CPU | 4 cores | 8 cores |
-| RAM | 8 GB | 16 GB or more |
+| GPU | NVIDIA GPU, 8GB+ VRAM, CUDA 12+ (Required) | NVIDIA GPU, 16GB VRAM (for Large models) |
+| CPU | 8 cores | 16 cores |
+| RAM | 16 GB | 32 GB |
 | Disk | 30 GB free | 50 GB free |
-| OS | Linux (Debian 12 tested), macOS, Windows 11 | Ubuntu 22.04 LTS |
-| Docker | 28.0 or later | 28.0 or later with NVIDIA Container Toolkit |
+| OS | Linux, Windows (WSL2) | Linux (Ubuntu 22.04+) |
+| Docker | 28.0+ with NVIDIA Container Toolkit | - |
 
 ## 4  Installation with Docker Compose
 
-Two compose profiles are provided: **gpu** and **cpu**.
+### 4.1 Prerequisites
+1. **NVIDIA GPU** with updated drivers.
+2. **Docker Desktop** or **Docker Engine** (Linux).
+3. **NVIDIA Container Toolkit** must be installed and configured for Docker.
+   - [Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 
-### 4.1 GPU profile
-Speeds up inference using a NVidia GPU.
-
-1. Install Docker Desktop or Docker Engine with Compose.
-2. Install the NVIDIA Container Toolkit.
-   *Windows users:* first enable WSL 2, then install Docker with the WSL 2 backend, and finally install the NVIDIA toolkit.
-   Refer to:
-   * <https://learn.microsoft.com/windows/wsl/install>
-   * <https://docs.docker.com/desktop/features/wsl/>
-   * <https://learn.microsoft.com/windows/ai/directml/gpu-cuda-in-wsl>
-   * <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html>
-3. Clone and start the containers:
+### 4.2 Start Application
 ```bash
 git clone --recursive https://github.com/briyoon/ECE551-Video-Seg.git
 cd ECE551-Video-Seg
-docker compose --profile gpu up --build -d
-```
-4. Open http://localhost:3000.
 
-### 4.2 CPU profile (slow)
-Processing on CPU is significantly slower.
-1. Install Docker Desktop or Docker Engine with Compose.
-2. Clone and start the containers:
+# Build and start services (GPU support required)
+docker compose up --build -d
+```
+
+Access the application at: http://localhost:3000
+
+## 5 Manual Installation (Development)
+
+For local development or environments without Docker.
+
+### 5.1 Backend
+Requires **Python 3.10+** and **CUDA 12+**. We recommend using `uv` for dependency management, but `pip` also works.
+
 ```bash
-git clone --recursive https://github.com/briyoon/ECE551-Video-Seg.git
-cd ECE551-Video-Seg
-docker compose --profile cpu up --build -d
+cd video_seg_backend
+
+# Option A: Using uv (Recommended)
+pip install uv
+uv sync
+source .venv/bin/activate
+
+# Option B: Standard pip
+pip install -e .
 ```
-3. Open http://localhost:3000.
 
-## 5 Detailed Workflow
+Start the API server (checkpoints will download automatically on first run):
+```bash
+python app.py
+```
+*Server runs on http://localhost:8000*
 
-The following section walks through every user-visible step in the current image-annotation workflow, and pairs each UI action with the relevant client-side component and back-end API call.
-The same structure will apply to video as soon as timeline support is finished (see *Future goals*).
+### 5.2 Frontend
+Requires **Node.js 18+**.
 
-### 5.1 Project Home (“Projects”)
+```bash
+cd video_seg_frontend
+npm install
+npm run dev
+```
+*Client runs on http://localhost:5173 (proxies API requests to port 8000)*
+
+
+## 6 Detailed Workflow
+
+The following section walks through every user-visible step in the workflow, and pairs each UI action with the relevant client-side component and back-end API call.
+
+### 6.1 Project Home (“Projects”)
 
 | Action | UI element (component) | Back-end call | Notes |
 |--------|-----------------------|---------------|-------|
 | Display list | `<Card>` tiles rendered by **Projects.svelte** (snippet 1) | `GET /api/v1/projects` *(handled in load function; not in snippet)* | Projects are passed to child components via Svelte context (`getContext('projectlist')`). |
 | Create project | **“+ New Project”** button | — | Navigates to `/projects/new`. |
 
-### 5.2 Create Project
+### 6.2 Create Project
 
 | Action | UI element (component) | Back-end call | Validation / state |
 |--------|-----------------------|---------------|---------------------|
@@ -117,7 +137,7 @@ The same structure will apply to video as soon as timeline support is finished (
 | Submit form | **Create Project** `<Button>` | `POST /api/v1/projects` → `createProjectApiV1ProjectsPost` | Disabled while `submitting=true`. |
 | Success | Toast “Project created” (svelte-sonner) | — | `goto('/projects/{id}')` on success. |
 
-### 5.3 Project Dashboard
+### 6.3 Project Dashboard
 
 Layout reference: `project.png`
 
@@ -129,7 +149,7 @@ Layout reference: `project.png`
 | **Export Annotations** | Secondary `<Button>` | Triggers `GET /api/v1/projects/{pid}/export` | Returns ZIP containing `coco.json` + mask files. |
 | **Delete Project** | Destructive `<Button>` | `DELETE /api/v1/projects/{pid}` | Confirmation dialog then redirect to `/`. |
 
-### 5.4 Label Manager
+### 6.4 Label Manager
 
 Layout reference: `labels.png`
 
@@ -142,7 +162,7 @@ Layout reference: `labels.png`
 
 Internally each label is an object `{ id, name, color }`. Edits update the local `labels` array to keep the UI reactive.
 
-### 5.5 Gallery / Media Manager
+### 6.5 Gallery / Media Manager
 
 Layout reference: `gallery.png`
 
@@ -157,13 +177,13 @@ Layout reference: `gallery.png`
 - Images : `image/png`, `image/jpeg`
 - Video  : `video/mp4`
 
-### 5.6 Annotation Studio — Detailed Step-by-Step
+### 6.6 Annotation Studio — Detailed Step-by-Step
 
 This section expands the “Studio” step of the workflow and explains how each interaction is wired to the front-end component logic and the related API calls.
 
 ---
 
-#### 5.6.1  Screen layout
+#### 6.6.1  Screen layout
 
 | Region | DOM element(s) | Purpose |
 |--------|----------------|---------|
@@ -174,7 +194,7 @@ This section expands the “Studio” step of the workflow and explains how each
 
 ---
 
-#### 5.6.2  Data flow on initial load
+#### 6.6.2  Data flow on initial load
 
 1. **`onMount()`**
    ```ts
@@ -190,7 +210,7 @@ This section expands the “Studio” step of the workflow and explains how each
 - Calls `refreshAnnotations()` → `GET /annotations/image/{mid}`.
 - Resets zoom / pan; redraws overlay.
 
-#### 5.6.3 Adding a prompt (positive / negative)
+#### 6.6.3 Adding a prompt (positive / negative)
 
 | User gesture | Code path | HTTP call |
 | --- | --- | --- |
@@ -209,7 +229,7 @@ if (msg.event === 'annotations_updated') {
 }
 ```
 
-#### 5.6.4 Deleting the nearest prompt
+#### 6.6.4 Deleting the nearest prompt
 
 | Gesture |	Code | HTTP |
 | --- | --- | --- |
@@ -217,7 +237,7 @@ if (msg.event === 'annotations_updated') {
 
 `deleteNearestPrompt` finds the prompt with minimum Euclidean distance in pixel space and issues a `DELETE`. The result updates the same caches and overlay.
 
-#### 5.6.5 Mask rendering pipeline
+#### 6.6.5 Mask rendering pipeline
 
 1. Mask retrieval – `refreshAnnotations()` calls
 `GET /projects/{pid}/annotations/image/{mid}` which returns an array:
@@ -243,7 +263,7 @@ if (msg.event === 'annotations_updated') {
 
 All transforms are applied via the 2-D canvas transform so the overlay stays aligned with the <img> element regardless of resize or device-pixel ratio.
 
-#### 5.6.6 Keyboard shortcuts
+#### 6.6.6 Keyboard shortcuts
 | Key | Function | Implementation |
 | --- | --- | ---
 | 1 … 9 | Switch active label	| handleKey: numeric keys index into labels array. |
@@ -252,31 +272,43 @@ All transforms are applied via the 2-D canvas transform so the overlay stays ali
 Ctrl+Z	| Undo prompt change	| pops undoStack → pushes to redoStack |
 Ctrl+Y	| Redo prompt change	| inverse of undo |
 
-#### 5.6.7 Model selection
+#### 6.6.7 Model selection
 - Right toolbar `<Select>` lists available model IDs returned by GET /models.
 - When the user changes selectedModelId, subsequent addPrompt() calls include it via ?model_key=….
 - The server loads the corresponding SAM 2.1 checkpoint on first use and re-runs inference for that prompt.
 
-#### 5.6.8 Undo / redo stacks
+#### 6.6.8 Undo / redo stacks
 - Both stacks store deep copies (JSON.stringify/parse) of the prompts array only.
 - Annotation pixels are not stored; masks are always requested fresh from the server. This prevents large memory use and guarantees consistency with server state.
 
-#### 6.7.9 Failure handling
+#### 6.6.9 Failure handling
 - Each API call is wrapped with a toast message on failure (toast.error).
 - Network errors (non-2xx) are printed to console.error and surfaced to the user.
 
-### 5.6 Export
+### 6.7 Video Annotation Workflow
+
+Video annotation adds a temporal dimension using SAM 2's memory module.
+
+1. **Load Video**: Clicking a video in the sidebar loads the frames and SAM 2 video state into GPU memory (`POST /video/load`).
+2. **Timeline Navigation**: The scrubber allows navigating frames. Playback is supported with `requestAnimationFrame` for smooth rendering.
+3. **Object Tracking**:
+    - Add prompts on a single frame.
+    - Click "submit" to propagate the mask to all video frames.
+    - Uses `run_video_inference` with tracking to predict the object mask across time.
+4. **Refinement**: Navigate to frames where tracking fails, add corrective prompts, and re-submit to update the object track.
+
+### 6.8 Export
 - Download JSON on the dashboard calls exportProject() (snippet 3).
 - FastAPI streams a ZIP archive: coco.json + mask PNGs (or RLE only, based on settings).
 - The browser creates a blob URL and triggers a download with the suggested filename project_{pid}.zip.
 
-### 5.7 Deletion
+### 6.9 Deletion
 Project-level deletion removes:
 - Database records (project, labels, media, masks).
 - On-disk media and mask files under DATA_DIR/{pid}.
 Confirmation is handled on the client; irreversible action is performed by DELETE /api/v1/projects/{pid}.
 
-## 6 Quick Evaluation
+## 7 Quick Evaluation
 
 A small-scale study was conducted with the Oxford-IIIT Pet datasets. Both time and accuracy metrics were studied. A subset of 50 cats and 50 dogs were used, with even class distribution.
 
@@ -316,9 +348,24 @@ Edge cases: Both empty → perfect match (often treated as 1.0). One empty, one 
 - Speed and quality are both strong. You’re achieving sub-6-second masks with ~0.80 IoU on average.
 - Small class disparity. Worth a targeted review of low-IoU dog cases to identify common failure modes.
 
-## 7 Future Goals
+### 7.2 Video Evaluation (DAVIS 2017)
 
-- Video support with timeline navigation and cached batch inference.
+To validate video segmentation performance, the system was evaluated on a subset of the DAVIS 2017 validation set, utilizing the large SAM 2.1 model.
+
+**Command:**
+```bash
+python scripts/video_evaluation.py --davis ./data/DAVIS_subset --export ./data/DAVIS_subset_eval_2.zip
+```
+
+**Results:**
+- **Mean IoU (J-Score):** 0.8571
+- **Performance Details:**
+  - High accuracy (>0.90) on rigid objects (cat-girl, car-turn, drone).
+  - Robust tracking for deformation (gold-fish: ~0.90-0.95).
+  - Challenging cases: 'surf' (occlusion/water) and 'schoolgirls' (multiple similar interacting objects) showed lower scores (0.53 - 0.74), highlighting areas for refinement prompts.
+
+## 8 Future Goals
+
 - Integration of an object-detection model to generate initial prompts automatically.
-- Tools to further refine inital SAM2 annotations.
+- Tools to further refine initial SAM2 annotations.
 - Torch-TensorRT engine support for faster inference on compatible GPUs.
